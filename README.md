@@ -35,8 +35,8 @@ var (
 	var x *uintptr
 	bananaphone.NtCreateThreadEx(createthread, x, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
 	ntapi.Call(0, 3, 3, 3, 3)
-  ```
-  <imghere>
+ ```
+![image showing api monitor output](img/apiMonitor.png)
   
   What you're looking at is the output of API Monitor, which can be used to track a program's API calls. Each function was called with some easy to identify values (all 1's as a parameter, all 2's etc). What this shows is that the call made by `bananaphone.NtCreateThreadEx` is not captured by API Monitor, and any AV/EDR that uses similar methods probably won't catch it either. Neat.
   
