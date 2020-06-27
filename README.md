@@ -19,3 +19,24 @@ All of the PE parsing and extraction of interesting information is provided by h
 # Usage
 
 See examples in `example/`.
+
+# Why
+
+Here is an example I posted into a slack chan recently:
+
+```
+...
+var (
+	modntdll = windows.NewLazySystemDLL("ntdll.dll")
+	ntapi    = modntdll.NewProc("NtCreateThreadEx")
+)
+...
+	ntapi.Call(0, 1, 1, 1, 1)
+	var x *uintptr
+	bananaphone.NtCreateThreadEx(createthread, x, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+	ntapi.Call(0, 3, 3, 3, 3)
+  ```
+  <imghere>
+  
+  What you're looking at is the output of API Monitor, which can be used to track a program's API calls. Each function was called with some easy to identify values (all 1's as a parameter, all 2's etc). What this shows is that the call made by `bananaphone.NtCreateThreadEx` is not captured by API Monitor, and any AV/EDR that uses similar methods probably won't catch it either. Neat.
+  
