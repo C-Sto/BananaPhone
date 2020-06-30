@@ -7,6 +7,7 @@ import (
 
 	"github.com/awgh/rawreader"
 	"github.com/binject/debug/pe"
+	"golang.org/x/sys/windows"
 )
 
 //rvaToOffset converts an RVA value from a PE file into the file offset. When using binject/debug, this should work fine even with in-memory files.
@@ -83,4 +84,15 @@ func sysIDFromRawBytes(b []byte) (uint16, error) {
 		return 0, MayBeHookedError{Foundbytes: b}
 	}
 	return binary.LittleEndian.Uint16(b[4:8]), nil
+}
+
+//stupidstring is the stupid internal windows definiton of a unicode string. I hate it.
+type stupidstring struct {
+	Length    uint16
+	MaxLength uint16
+	PWstr     *uint16
+}
+
+func (s stupidstring) String() string {
+	return windows.UTF16PtrToString(s.PWstr)
 }
