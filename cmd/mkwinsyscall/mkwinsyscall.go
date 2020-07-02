@@ -67,6 +67,7 @@ var (
 	filename       = flag.String("output", "", "output file name (standard output if omitted)")
 	printTraceFlag = flag.Bool("trace", false, "generate print statement after every syscall")
 	systemDLL      = flag.Bool("systemdll", true, "whether all DLLs should be loaded from the Windows system directory")
+	//mode           = flag.String("mode", "auto", "mode to put bananaphone in. Options are: auto, disk, memory, raw")
 )
 
 func trim(s string) string {
@@ -84,6 +85,13 @@ func syscalldot() string {
 		return ""
 	}
 	return "syscall."
+}
+
+func bananaphonedot() string {
+	if packageName == "bananaphone" {
+		return ""
+	}
+	return "bananaphone."
 }
 
 // Param is function parameter
@@ -362,7 +370,8 @@ type Fn struct {
 	dllfuncname string
 	src         string
 	// TODO: get rid of this field and just use parameter index instead
-	curTmpVarIdx int // insure tmp variables have uniq names
+	curTmpVarIdx int    // insure tmp variables have uniq names
+	mode         string //bananananamode
 }
 
 // extractParams parses s to extract function parameters.
@@ -466,6 +475,13 @@ func newFn(s string) (*Fn, error) {
 	if found {
 		f.Rets.FailCond = body
 	}
+
+	//bananamode
+	_, body, s, found = extractSection(s, '<', '>')
+	if found {
+		f.mode = body
+	}
+
 	// dll and dll function names
 	/*
 		s = trim(s)
@@ -505,6 +521,28 @@ func (f *Fn) DLLFuncName() string {
 	return f.dllfuncname
 }
 
+func (f *Fn) DLLFuncNameClean() string {
+	if f.mode == "raw" {
+		return ""
+	}
+	if f.dllfuncname == "" {
+		return f.Name
+	}
+	return f.dllfuncname
+}
+
+func (f *Fn) BpMode() string {
+	switch f.mode {
+	case "memory":
+		return "MemoryBananaPhoneMode"
+	case "disk":
+		return "DiskBananaPhoneMode"
+	case "raw":
+		return ``
+	}
+	return "AutoBananaPhoneMode"
+}
+
 // ParamList returns source code for function f parameters.
 func (f *Fn) ParamList() string {
 	return join(f.Params, func(p *Param) string { return p.Name + " " + p.Type }, ", ")
@@ -512,7 +550,11 @@ func (f *Fn) ParamList() string {
 
 // HelperParamList returns source code for helper function f parameters.
 func (f *Fn) HelperParamList() string {
-	return join(f.Params, func(p *Param) string { return p.Name + " " + p.HelperType() }, ", ")
+	r := join(f.Params, func(p *Param) string { return p.Name + " " + p.HelperType() }, ", ")
+	if f.mode == "raw" {
+		r = "sysid uint16, " + r
+	}
+	return r
 }
 
 // ParamPrintList returns source code of trace printing part correspondent
@@ -560,7 +602,7 @@ func (f *Fn) Syscall() string {
 }
 
 func (f *Fn) BananaphoneSyscall() string {
-	return "bananaphone.Syscall"
+	return bananaphonedot() + "Syscall"
 }
 
 // SyscallParamList returns source code for SyscallX parameters for function f.
@@ -738,16 +780,32 @@ func (src *Source) IsStdRepo() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	goroot := runtime.GOROOT()
+
 	if runtime.GOOS == "windows" {
 		abspath = strings.ToLower(abspath)
-		goroot = strings.ToLower(goroot)
+		//			goroot = strings.ToLower(goroot)
 	}
-	sep := string(os.PathSeparator)
-	if !strings.HasSuffix(goroot, sep) {
-		goroot += sep
+	/*
+		//this is a bad hack
+		sep := string(os.PathSeparator)
+		if !strings.HasSuffix(goroot, sep) {
+			goroot += sep
+		}
+		fmt.Println(abspath, goroot)
+		return strings.HasPrefix(abspath, goroot+"/github.com/c-sto/bananaphone/pkg"), nil
+	*/
+	return strings.Contains(abspath, filepath.Join("github.com", "c-sto", "bananaphone", "pkg", "bananaphone")), nil
+}
+
+func (src *Source) BananaImport() string {
+	std, err := src.IsStdRepo()
+	if err != nil {
+		panic(err)
 	}
-	return strings.HasPrefix(abspath, goroot), nil
+	if !std {
+		return `bananaphone "github.com/C-Sto/BananaPhone/pkg/BananaPhone"`
+	}
+	return ``
 }
 
 // Generate output source file from a source set src.
@@ -777,7 +835,7 @@ func (src *Source) Generate(w io.Writer) error {
 			//src.Import("internal/syscall/windows/sysdll")
 		case pkgXSysWindows:
 		default:
-			//src.ExternalImport("golang.org/x/sys/windows")
+			//src.ExternalImport(`github.com/C-Sto/BananaPhone/pkg/BananaPhone`)
 		}
 	}
 	if packageName != "syscall" {
@@ -847,6 +905,38 @@ func main() {
 	}
 }
 
+func (f *Fn) BananaResolver1() string {
+	if f.mode == "raw" {
+		return ``
+	}
+	return "bp, e := " + bananaphonedot() + "NewBananaPhone(" + bananaphonedot()
+}
+
+func (f *Fn) BananaResolver2() string {
+	if f.mode == `raw` {
+		return ``
+	}
+	return `)
+if e != nil {
+	err = e
+	return 
+}
+//resolve the functions and extract the syscalls
+sysid, e := bp.GetSysID("`
+}
+
+func (f *Fn) BananaResolver3() string {
+	if f.mode == `raw` {
+		return ``
+	}
+	return `")
+if e != nil {
+	err = e
+	return
+}
+`
+}
+
 // TODO: use println instead to print in the following template
 const srcTemplate = `
 
@@ -857,10 +947,10 @@ package {{packagename}}
 import (
 {{range .StdLibImports}}"{{.}}"
 {{end}}
-	bananaphone "github.com/C-Sto/BananaPhone/pkg/BananaPhone"
 
 {{range .ExternalImports}}"{{.}}"
 {{end}}
+{{.BananaImport}}
 )
 
 var _ unsafe.Pointer
@@ -909,17 +999,7 @@ func {{.Name}}({{.ParamList}}) {{template "results" .}}{
 
 {{define "funcbody"}}
 func {{.HelperName}}({{.HelperParamList}}) {{template "results" .}}{
-	bp, e := bananaphone.NewBananaPhone(bananaphone.AutoBananaPhoneMode)
-	if e != nil {
-		err = e
-		return 
-	}
-	//resolve the functions and extract the syscalls
-	sysid, e := bp.GetSysID("{{.DLLFuncName}}")
-	if e != nil {
-		err = e
-		return
-	}
+	{{.BananaResolver1}}{{.BpMode}}{{.BananaResolver2}}{{.DLLFuncNameClean}}{{.BananaResolver3}}
 
 {{template "tmpvars" .}}	{{template "syscall" .}}	{{template "tmpvarsreadback" .}}
 {{template "seterror" .}}{{template "printtrace" .}}	return
