@@ -3,6 +3,8 @@ package bananaphone
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/awgh/rawreader"
 	"github.com/binject/debug/pe"
@@ -24,6 +26,7 @@ const (
 type BananaPhone struct {
 	banana *pe.File
 	isAuto bool
+	memloc uintptr
 }
 
 //NewBananaPhone creates a new instance of a bananaphone with behaviour as defined by the input value. Use AutoBananaPhoneMode if you're not sure.
@@ -34,25 +37,83 @@ Possible values:
 	- AutoBananaPhoneMode
 */
 func NewBananaPhone(t PhoneMode) (*BananaPhone, error) {
+	return NewBananaPhoneNamed(t, "ntdll.dll", `C:\Windows\system32\ntdll.dll`)
+}
+
+//NewSystemBananaPhoneNamed is literally just an un-error handled passthrough for NewBananaPhoneNamed to easily work with mkwinsyscall. The ptr might be nil, who knows! lol! yolo!
+func NewSystemBananaPhoneNamed(t PhoneMode, name, diskpath string) *BananaPhone {
+	r, _ := NewBananaPhoneNamed(t, name, diskpath)
+	return r
+}
+
+//NewBananaPhoneNamed creates a new instance of a bananaphone with behaviour as defined by the input value, specifying the module provided. Use AutoBananaPhoneMode if you're not sure which mode and specify the path. Path only used for disk/auto modes.
+/*
+Possible values:
+	- MemoryBananaPhoneMode
+	- DiskBananaPhoneMode
+	- AutoBananaPhoneMode
+*/
+func NewBananaPhoneNamed(t PhoneMode, name, diskpath string) (*BananaPhone, error) {
 	var p *pe.File
 	var e error
-
+	var bp = &BananaPhone{}
 	switch t {
 	case AutoBananaPhoneMode:
 		fallthrough
 	case MemoryBananaPhoneMode:
-		start, size := GetNtdllStart()
-		rr := rawreader.New(start, int(size))
-		p, e = pe.NewFileFromMemory(rr)
-
+		loads, err := InMemLoads()
+		if err != nil {
+			return nil, err
+		}
+		found := false
+		for k, load := range loads { //shout out to Frank Reynolds
+			if strings.ToLower(k) == strings.ToLower(diskpath) || strings.ToLower(name) == strings.ToLower(filepath.Base(k)) {
+				rr := rawreader.New(uintptr(load.BaseAddr), int(load.Size))
+				p, e = pe.NewFileFromMemory(rr)
+				bp.memloc = uintptr(load.BaseAddr)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("module not found, bad times (%s %s)", diskpath, filepath.Base(diskpath))
+		}
 	case DiskBananaPhoneMode:
-		p, e = pe.Open(`C:\Windows\system32\ntdll.dll`)
+		p, e = pe.Open(diskpath)
 	}
+	bp.banana = p
+	bp.isAuto = t == AutoBananaPhoneMode
+	return bp, e
+}
 
-	return &BananaPhone{
-		banana: p,
-		isAuto: t == AutoBananaPhoneMode,
-	}, e
+//GetFuncPtr returns a pointer to the function (Virtual Address)
+func (b *BananaPhone) GetFuncPtr(funcname string) (uint64, error) {
+	exports, err := b.banana.Exports()
+	if err != nil {
+		return 0, err
+	}
+	for _, ex := range exports {
+		if strings.ToLower(funcname) == strings.ToLower(ex.Name) {
+			return uint64(b.memloc) + uint64(ex.VirtualAddress), nil
+		}
+	}
+	return 0, fmt.Errorf("could not find function: %s", funcname)
+}
+
+//BananaProc emulates the windows proc thing
+type BananaProcedure struct {
+	address uintptr
+}
+
+//Addr returns the address of this procedure
+func (b BananaProcedure) Addr() uintptr {
+	return b.address
+}
+
+//NewProc emulates the windows NewProc call :-)
+func (b *BananaPhone) NewProc(funcname string) BananaProcedure {
+	addr, _ := b.GetFuncPtr(funcname) //yolo error handling
+	return BananaProcedure{address: uintptr(addr)}
 }
 
 //GetSysID resolves the provided function name into a sysid.

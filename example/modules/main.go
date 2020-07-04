@@ -18,6 +18,17 @@ func main() {
 	fmt.Println("end modules!")
 	fmt.Println(bananaphone.InMemLoads())
 
-	fmt.Printf("%+v\n", bananaphone.GetModuleLoadedOrderPtr(1))
+	fmt.Printf("%+v\n", bananaphone.GetModuleLoadedOrderPtr(0))
 	fmt.Println("end modules!")
+
+	fmt.Println("how about some other modules?")
+	bpn, e := bananaphone.NewBananaPhoneNamed(bananaphone.AutoBananaPhoneMode, "kernel32.dll", `C:/WINDWS/System32/KERNEL32.DLL`)
+	if e != nil {
+		panic(e)
+	}
+	loc, err := bpn.GetFuncPtr("VirtualQueryEx")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("VirtualQueryEx: %x\n", loc)
 }
