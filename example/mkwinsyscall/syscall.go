@@ -11,4 +11,4 @@ __kernel_entry NTSYSCALLAPI NTSTATUS NtAllocateVirtualMemory(
 );
 */
 
-//sys NtAllocateVirtualMemory(processHandle syscall.Handle, baseAddress *uintptr, zeroBits uintptr, regionSize *uintptr, allocationType uint64, protect uint64) (err error) {
+//dsys NtAllocateVirtualMemory(processHandle syscall.Handle, baseAddress *uintptr, zeroBits uintptr, regionSize *uintptr, allocationType uint64, protect uint64) (err error) {

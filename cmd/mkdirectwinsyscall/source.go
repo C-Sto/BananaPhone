@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"go/parser"
 	"go/token"
 	"io"
@@ -41,6 +42,7 @@ type Source struct {
 	StdLibImports   []string
 	ExternalImports []string
 	PackageName     string
+	Mode            string
 }
 
 //Import adds an import to the current source (this should never really be called?)
@@ -103,7 +105,7 @@ func (src *Source) ParseFile(path string) error {
 		t = strings.TrimSpace(t)
 
 		//what's left should be a function definition. Let's parse that badboi!
-		std, err := src.IsStdRepo()
+		std, err := src.IsStdRepo(path)
 		if err != nil {
 			return err
 		}
@@ -136,7 +138,7 @@ func (src *Source) ParseFile(path string) error {
 }
 
 // Generate output source file
-func (src *Source) Generate(w io.Writer) error {
+func (src *Source) Generate(w io.Writer, mode string) error {
 
 	//work out if this is being used from bananaphone or not :O bananaception! the phone is ringing from inside the package!
 	/*
@@ -145,11 +147,13 @@ func (src *Source) Generate(w io.Writer) error {
 			return err
 		}
 	*/
+	src.Mode = setmode(mode)
 	src.Import("syscall") //I think we will always need this?
+	src.Import("fmt")     //error creation (todo: should look into how to remove this)
 
-	funcMap := template.FuncMap{ //I don't fully understand what's going on here
+	funcMap := template.FuncMap{ //I don't fully understand what's going on here. Update: I get it
 		"packagename":    src.GetPackageName,
-		"bananaphonedot": src.Bananaphonedot,
+		"bananaphonedot": src.BananaPhonedot,
 	}
 
 	t := template.Must(template.New("main").Funcs(funcMap).Parse(srcTemplate))
@@ -161,11 +165,19 @@ func (src *Source) Generate(w io.Writer) error {
 }
 
 // IsStdRepo reports whether src is part of standard library.
-func (src *Source) IsStdRepo() (bool, error) {
-	if len(src.Files) == 0 {
+func (src *Source) IsStdRepo(path string) (bool, error) {
+	if len(src.Files) == 0 && path == "" {
 		return false, errors.New("no input files provided")
 	}
-	abspath, err := filepath.Abs(src.Files[0])
+	var (
+		abspath string
+		err     error
+	)
+	if len(src.Files) == 0 {
+		abspath, err = filepath.Abs(path)
+	} else {
+		abspath, err = filepath.Abs(src.Files[0])
+	}
 	if err != nil {
 		return false, err
 	}
@@ -177,8 +189,8 @@ func (src *Source) IsStdRepo() (bool, error) {
 	return strings.Contains(abspath, filepath.Join("github.com", "c-sto", "bananaphone", "pkg", "bananaphone")), nil
 }
 
-//Bananaphonedot returns the prefix to any bananaphone calls (or none, if it's inside the bp repo)
-func (src Source) Bananaphonedot() string {
+//BananaPhonedot returns the prefix to any bananaphone calls (or none, if it's inside the bp repo)
+func (src Source) BananaPhonedot() string {
 	if src.PackageName == "bananaphone" {
 		return ""
 	}
@@ -192,7 +204,7 @@ func (src Source) GetPackageName() string {
 
 //BananaImport will return the import path for bananaphone, or an empty string if it's called from within this repo
 func (src *Source) BananaImport() string {
-	std, err := src.IsStdRepo()
+	std, err := src.IsStdRepo("")
 	if err != nil {
 		panic(err)
 	}
@@ -200,4 +212,28 @@ func (src *Source) BananaImport() string {
 		return `bananaphone "github.com/C-Sto/BananaPhone/pkg/BananaPhone"`
 	}
 	return ``
+}
+
+//VarBlock will return the source needed for the var block - nothing if in raw mode etc
+func (src *Source) VarBlock() string {
+	if src.Mode == "raw" {
+		return ``
+	}
+
+	tpl := `var (
+		bpGlobal, bperr = %sNewBananaPhone(%s%s) //bad, naughty global :(
+)`
+	return fmt.Sprintf(tpl, src.BananaPhonedot(), src.BananaPhonedot(), src.Mode)
+}
+
+func setmode(mode string) string {
+	switch mode {
+	case "memory":
+		return "MemoryBananaPhoneMode"
+	case "disk":
+		return "DiskBananaPhoneMode"
+	case "raw":
+		return "raw"
+	}
+	return "AutoBananaPhoneMode"
 }

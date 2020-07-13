@@ -23,6 +23,7 @@ const (
 var (
 	filename       = flag.String("output", "", "output file name (standard output if omitted)")
 	printTraceFlag = flag.Bool("trace", false, "generate print statement after every syscall")
+	mode           = flag.String("mode", "auto", "Which bananaphone mode to use (default auto, anything not in the following options results in auto) Options: disk,memory,raw")
 )
 
 func main() {
@@ -40,7 +41,7 @@ func main() {
 	}
 
 	var buf bytes.Buffer
-	if err := src.Generate(&buf); err != nil {
+	if err := src.Generate(&buf, *mode); err != nil {
 		log.Println(string(buf.Bytes()))
 		log.Fatal(err)
 	}

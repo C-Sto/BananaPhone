@@ -107,12 +107,6 @@ func NewFn(s string, internal bool) (*Fn, error) {
 		f.Rets.SuccessCond = body
 	}
 
-	//bananamode
-	_, body, s, found = extractSection(s, '<', '>')
-	if found {
-		f.mode = body
-	}
-
 	return f, nil
 }
 
@@ -167,37 +161,51 @@ func (f *Fn) DLLFuncName() string {
 	return f.dllfuncname
 }
 
-func (f *Fn) BpMode() string {
-	switch f.mode {
-	case "memory":
-		return "MemoryBananaPhoneMode"
-	case "disk":
-		return "DiskBananaPhoneMode"
-	case "raw":
-		return ``
-	}
-	return "AutoBananaPhoneMode"
-}
-
-//output for function body based on banana mode
+//BananaLoader is which technique BananaPhone should use to resolve syscalls. A raw loader does not load syscalls at all (if the user wants to bundle syscalls directly, without resolving dynamic)
 func (f *Fn) BananaLoader() string {
 	if f.mode == "raw" {
-		return `` //no loader
+		return `` //no loader, because user indicates they know what they are doing :smirkemoji:
 	}
-	yaboi := `bp, e := %sNewBananaPhone(%s)
-	if e != nil {
-		err = e
-		return 
+	yaboi := `
+	//check if our bp is nill or not (maybe something broke it during  init?)
+	if bpGlobal == nil {
+		err = fmt.Errorf("BananaPhone uninitialised: %%s", bperr.Error())
+		return
 	}
-	//resolve the functions and extract the syscalls
-	sysid, e := bp.GetSysID("%s")
+
+	//resolve the functions and extract the syscall ID
+	sysid, e := bpGlobal.GetSysID("%s")
 	if e != nil {
 		err = e
 		return
 	}`
-	dot := "bananaphone."
-	if f.Internal {
-		dot = ""
+
+	return fmt.Sprintf(yaboi, f.DLLFuncName())
+}
+
+// StrconvFunc returns name of Go string to OS string function for f.
+func (f *Fn) StrconvFunc() string {
+	if f.IsUTF16() {
+		return "syscall.UTF16PtrFromString"
 	}
-	return fmt.Sprintf(yaboi, dot, f.BpMode(), f.DLLFuncName())
+	return "syscall.BytePtrFromString"
+}
+
+// BananaphoneSyscall returns the syscall function with a package init thing if needed
+func (f *Fn) BananaphoneSyscall() string {
+	prefix := "bananaphone."
+	if f.Internal {
+		prefix = ""
+	}
+	return prefix + "Syscall"
+}
+
+// SyscallParamList returns source code for SyscallX parameters for function f.
+func (f *Fn) SyscallParamList() string {
+	a := make([]string, 0)
+	for _, p := range f.Params {
+		a = append(a, p.SyscallArgList()...)
+	}
+
+	return strings.Join(a, ", ")
 }

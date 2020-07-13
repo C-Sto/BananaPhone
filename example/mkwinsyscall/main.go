@@ -18,4 +18,4 @@ func main() {
 	}
 }
 
-//go:generate go run github.com/C-Sto/BananaPhone/cmd/mkwinsyscall -output zsyscall_windows.go syscall.go
+//go:generate go run github.com/C-Sto/BananaPhone/cmd/mkdirectwinsyscall -output zsyscall_windows.go syscall.go
