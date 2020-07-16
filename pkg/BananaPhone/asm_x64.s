@@ -93,7 +93,7 @@ endloop:
 //based on https://golang.org/src/runtime/sys_windows_amd64.s
 #define maxargs 16
 //func Syscall(callid uint16, argh ...uintptr) (uint32, error)
-TEXT ·Syscall(SB), $0-56
+TEXT ·bpSyscall(SB), $0-56
 	XORQ AX,AX
 	MOVW callid+0(FP), AX
 	PUSHQ CX
@@ -140,8 +140,4 @@ loadregs:
 	// Return result.
 	POPQ	CX
 	MOVL	AX, errcode+32(FP)
-	// GetLastError().
-	MOVQ	0x30(GS), DI
-	MOVL	0x68(DI), AX
-	MOVQ	AX, err_itable+40(FP)
 	RET
