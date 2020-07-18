@@ -7,6 +7,8 @@ Useful references:
 
 This is a pure-go implementation of using direct syscalls to do Windowsy stuff. Don't be silly and try this on not-Windows, it won't work and I honestly don't know why you'd even think it would?
 
+**API not yet stable, vendor your shit properly. Sorry in advance if I push changes that break your malware :)**
+
 Several useful functions in dealing with process things are provided by this lib. Namely:
 - `Syscall` with a provided `sysid` and `uintptr`s to parameters, you're able to do a Windows syscall for pretty much any defined kernel call. I only tried with a handful, but it should work with any/most.
 - `GetPEB` return the memory location of the PEB without performing any API calls. At it's core, just does this: `MOVQ 0x60(GS), AX ; MOVQ AX, ret+0(FP)`(this is the Go ASM syntax, incase you're confused.)
