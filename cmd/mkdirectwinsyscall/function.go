@@ -166,20 +166,17 @@ func (f *Fn) BananaLoader() string {
 	if f.mode == "raw" {
 		return `` //no loader, because user indicates they know what they are doing :smirkemoji:
 	}
-	yaboi := `
-	//check if our bp is nill or not (maybe something broke it during  init?)
-	if bpGlobal == nil {
+	yaboi := `if bpGlobal == nil {` + //check if our bp is nill or not (maybe something broke it during  init?)
+		`
 		err = fmt.Errorf("BananaPhone uninitialised: %%s", bperr.Error())
 		return
 	}
-
-	//resolve the functions and extract the syscall ID
-	sysid, e := bpGlobal.GetSysID("%s")
+	sysid, e := bpGlobal.GetSysID("%s") ` + //resolve the functions and extract the syscall ID
+		`
 	if e != nil {
 		err = e
 		return
 	}`
-
 	return fmt.Sprintf(yaboi, f.DLLFuncName())
 }
 

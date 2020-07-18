@@ -47,7 +47,6 @@ func errnoErr(e syscall.Errno) error {
 {{define "funcbody"}}
 func {{.HelperName}}({{.HelperParamList}}) {{template "results" .}}{
 	{{.BananaLoader}}
-
 {{template "tmpvars" .}}	{{template "syscall" .}}	{{template "tmpvarsreadback" .}}
 {{template "seterror" .}}{{template "printtrace" .}}	return
 }

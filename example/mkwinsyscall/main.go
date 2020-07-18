@@ -5,7 +5,9 @@ import (
 )
 
 func main() {
-	var phandle, baseA, zerob, regionsize, alloctype, protect uintptr
+	var phandle syscall.Handle
+	var baseA, zerob, regionsize uintptr
+	var alloctype, protect uint64
 
 	phandle = 0xffffffffffffffff //special macro to say 'this process'
 	regionsize = uintptr(0x50000)

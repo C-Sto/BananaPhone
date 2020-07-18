@@ -221,7 +221,7 @@ func (src *Source) VarBlock() string {
 	}
 
 	tpl := `var (
-		bpGlobal, bperr = %sNewBananaPhone(%s%s) //bad, naughty global :(
+		bpGlobal, bperr = %sNewBananaPhone(%s%s)
 )`
 	return fmt.Sprintf(tpl, src.BananaPhonedot(), src.BananaPhonedot(), src.Mode)
 }

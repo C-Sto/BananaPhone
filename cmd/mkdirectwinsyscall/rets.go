@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Rets describes function return parameters.
 type Rets struct {
@@ -53,7 +56,7 @@ func (r *Rets) SetReturnValuesCode() string {
 	}
 	errvar := "_"
 	if r.ReturnsError {
-		errvar = "e1"
+		errvar = "_"
 	}
 	return fmt.Sprintf("%s, %s := ", retvar, errvar)
 }
@@ -88,8 +91,13 @@ func (r *Rets) SetErrorCode() string {
 }
 
 func (r *Rets) useLongHandleErrorCode(retvar string) string {
-	const code = `if r1 != 0 || e1 != nil {
-		err = %sEINVAL
+
+	const code = `if %s {
+		err = fmt.Errorf("error code: %%x",%s)
 	}`
-	return fmt.Sprintf(code, "syscall.")
+	cond := retvar + " != 0"
+	if r.SuccessCond != "" {
+		cond = strings.Replace(r.SuccessCond, "succretval", retvar, 1)
+	}
+	return fmt.Sprintf(code, cond, retvar)
 }
