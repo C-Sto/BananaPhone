@@ -34,6 +34,12 @@ func (r *Rets) ToParams() []*Param {
 	return ps
 }
 
+// PrintList returns source code of trace printing part correspondent
+// to syscall return values.
+func (r *Rets) PrintList() string {
+	return join(r.ToParams(), func(p *Param) string { return fmt.Sprintf(`"%s=", %s, `, p.Name, p.Name) }, `", ", `)
+}
+
 // ErrorVarName returns error variable name for r.
 func (r *Rets) ErrorVarName() string {
 	if r.ReturnsError {

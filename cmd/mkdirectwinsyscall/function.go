@@ -74,6 +74,12 @@ func NewFn(s, mode string, global, internal bool) (*Fn, error) {
 	if err != nil {
 		return nil, err
 	}
+	if f.Propermode == "raw" {
+		f.Params = append([]*Param{&Param{
+			Name: "sysid",
+			Type: "uint16",
+		}}, f.Params...)
+	}
 
 	// return values
 	// must have *all* return values in ()'s I guess?
@@ -186,7 +192,7 @@ func (f *Fn) DLLFuncName() string {
 
 //BananaLoader is which technique BananaPhone should use to resolve syscalls. A raw loader does not load syscalls at all (if the user wants to bundle syscalls directly, without resolving dynamic)
 func (f *Fn) BananaLoader() string {
-	if f.mode == "raw" {
+	if f.Propermode == "raw" {
 		return `` //no loader, because user indicates they know what they are doing :smirkemoji:
 	}
 	yaboi := ``
@@ -243,10 +249,19 @@ func (f *Fn) BananaphoneSyscall() string {
 	return prefix + "Syscall"
 }
 
+// ParamPrintList returns source code of trace printing part correspondent
+// to syscall input parameters.
+func (f *Fn) ParamPrintList() string {
+	return join(f.Params, func(p *Param) string { return fmt.Sprintf(`"%s=", %s, `, p.Name, p.Name) }, `", ", `)
+}
+
 // SyscallParamList returns source code for SyscallX parameters for function f.
 func (f *Fn) SyscallParamList() string {
 	a := make([]string, 0)
-	for _, p := range f.Params {
+	for i, p := range f.Params {
+		if f.Propermode == "raw" && i == 0 {
+			continue
+		}
 		a = append(a, p.SyscallArgList()...)
 	}
 
