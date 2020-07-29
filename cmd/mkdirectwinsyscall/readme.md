@@ -6,12 +6,28 @@ This is mostly a re-write of go/src/golang.org/x/sys/windows/mkwinsyscall to fit
 
 ## Flags
 ### Mode
+`-mode`
 Option  | Description
 ------------- | -------------
 auto  | Automatically resolves sysID. First attempts to resolve in-memory, then falls back to disk. This is the default option.
 memory  | Resolves sysID's by locating ntdll in memory by parsing the PEB, enumerating exports, and extracting the sysID from the function pointers.
 disk | Resolves sysID's by parsing ntdll on-disk. Uses filesystem read API's built in to go.
 raw | Does not resolve sysID's. Functions must be provided the sysID externally. (this may be useful if you want to hard-code them into the bin to avoid detection on resolution).
+
+### Globals
+`-noglobal`
+
+This option will not use a global var for sys ID resolution. This means the PEB will be parsed/ntdll.dll on disk will be read *every time* the generated function is called. This might be what you want for some insane reason, no judgement here.
+
+### Tracing
+`-trace`
+
+Is everything just not really working, and you have no idea what values are being given to your syscalls? This option will print every param + the returns etc for your debugging pleasure. It uses `print(` which I didn't even realise was a thing until I saw it in mkwinsyscall! TIL!
+
+### Output
+`-output`
+
+Specify the output filename. This overwrites the file if it exists (because that's useful when doing `go generate`).
 
 ## Usage
 
