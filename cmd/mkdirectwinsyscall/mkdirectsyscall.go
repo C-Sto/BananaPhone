@@ -24,6 +24,7 @@ var (
 	filename       = flag.String("output", "", "output file name (standard output if omitted)")
 	printTraceFlag = flag.Bool("trace", false, "generate print statement after every syscall")
 	mode           = flag.String("mode", "auto", "Which bananaphone mode to use (default auto, anything not in the following options results in auto) Options: disk,memory,raw")
+	noglobal       = flag.Bool("noglobal", false, "Do not use a global var (embed the bananaphone object into each function)")
 )
 
 func main() {
@@ -35,13 +36,13 @@ func main() {
 		usage()
 	}
 
-	src, err := ParseFiles(flag.Args())
+	src, err := ParseFiles(flag.Args(), *mode, !*noglobal)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var buf bytes.Buffer
-	if err := src.Generate(&buf, *mode); err != nil {
+	if err := src.Generate(&buf); err != nil {
 		log.Println(string(buf.Bytes()))
 		log.Fatal(err)
 	}

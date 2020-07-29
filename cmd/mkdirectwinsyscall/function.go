@@ -18,7 +18,9 @@ type Fn struct {
 	// TODO: get rid of this field and just use parameter index instead
 	curTmpVarIdx int    // insure tmp variables have uniq names
 	mode         string //bananananamode
-	Internal     bool   //is the function internal?
+	Propermode   string
+	Global       bool
+	Internal     bool //is the function internal?
 }
 
 // extractSection extracts text out of string s starting after start
@@ -49,7 +51,7 @@ func extractSection(s string, start, end rune) (prefix, body, suffix string, fou
 }
 
 //NewFn parses string s and return created function Fn.
-func NewFn(s string, internal bool) (*Fn, error) {
+func NewFn(s, mode string, global, internal bool) (*Fn, error) {
 	s = strings.TrimSpace(s) //pesky spaces
 
 	f := &Fn{
@@ -57,6 +59,8 @@ func NewFn(s string, internal bool) (*Fn, error) {
 		src:        s,
 		PrintTrace: *printTraceFlag,
 		Internal:   internal,
+		Propermode: mode,
+		Global:     global,
 	}
 	// function name and args (get everything between first set of brackets)
 	prefix, body, s, found := extractSection(s, '(', ')')
@@ -166,18 +170,41 @@ func (f *Fn) BananaLoader() string {
 	if f.mode == "raw" {
 		return `` //no loader, because user indicates they know what they are doing :smirkemoji:
 	}
-	yaboi := `if bpGlobal == nil {` + //check if our bp is nill or not (maybe something broke it during  init?)
-		`
+	yaboi := ``
+	if f.Global {
+		yaboi = `if bpGlobal == nil {` + //check if our bp is nill or not (maybe something broke it during  init?)
+			`
 		err = fmt.Errorf("BananaPhone uninitialised: %%s", bperr.Error())
 		return
 	}
-	sysid, e := bpGlobal.GetSysID("%s") ` + //resolve the functions and extract the syscall ID
+	`
+	} else {
+		t := `bp, bperr := %sNewBananaPhone(%s%s)`
+		if f.Internal {
+			yaboi = fmt.Sprintf(t, "", "", f.Propermode)
+		} else {
+			yaboi = fmt.Sprintf(t, "bananaphone.", "bananaphone.", f.Propermode)
+		}
+		yaboi += `
+		if bperr != nil{
+			return bperr
+		}`
+	}
+	yaboi += `
+	sysid, e := bp%s.GetSysID("%s") ` + //resolve the functions and extract the syscall ID
 		`
 	if e != nil {
 		err = e
 		return
 	}`
-	return fmt.Sprintf(yaboi, f.DLLFuncName())
+	return fmt.Sprintf(yaboi, f.GetGlobalVar(), f.DLLFuncName())
+}
+
+func (f *Fn) GetGlobalVar() string {
+	if f.Global {
+		return "Global"
+	}
+	return ""
 }
 
 // StrconvFunc returns name of Go string to OS string function for f.

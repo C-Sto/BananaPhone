@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"text/template"
@@ -18,7 +17,7 @@ import (
 // ParseFiles parses files listed in fs and extracts all syscall
 // functions listed in dsys comments. It returns a files
 // and functions collection *Source if successful.
-func ParseFiles(files []string) (*Source, error) {
+func ParseFiles(files []string, mode string, global bool) (*Source, error) {
 	src := &Source{
 		//Funcs: make([]*Fn, 0),
 		Files: make([]string, 0),
@@ -26,7 +25,10 @@ func ParseFiles(files []string) (*Source, error) {
 			"unsafe",
 		},
 		ExternalImports: make([]string, 0),
+		Mode:            setmode(mode),
+		Global:          global,
 	}
+
 	for _, file := range files {
 		if err := src.ParseFile(file); err != nil {
 			return nil, err
@@ -43,6 +45,7 @@ type Source struct {
 	ExternalImports []string
 	PackageName     string
 	Mode            string
+	Global          bool
 }
 
 //Import adds an import to the current source (this should never really be called?)
@@ -109,7 +112,7 @@ func (src *Source) ParseFile(path string) error {
 		if err != nil {
 			return err
 		}
-		f, err := NewFn(t, std)
+		f, err := NewFn(t, setmode(*mode), src.Global, std)
 		if err != nil {
 			return err
 		}
@@ -138,7 +141,7 @@ func (src *Source) ParseFile(path string) error {
 }
 
 // Generate output source file
-func (src *Source) Generate(w io.Writer, mode string) error {
+func (src *Source) Generate(w io.Writer) error {
 
 	//work out if this is being used from bananaphone or not :O bananaception! the phone is ringing from inside the package!
 	/*
@@ -147,7 +150,6 @@ func (src *Source) Generate(w io.Writer, mode string) error {
 			return err
 		}
 	*/
-	src.Mode = setmode(mode)
 	src.Import("syscall") //I think we will always need this?
 	src.Import("fmt")     //error creation (todo: should look into how to remove this)
 
@@ -182,9 +184,8 @@ func (src *Source) IsStdRepo(path string) (bool, error) {
 		return false, err
 	}
 
-	if runtime.GOOS == "windows" {
-		abspath = strings.ToLower(abspath)
-	}
+	abspath = strings.ToLower(abspath)
+
 	//this probably isn't the best way of checking, but it seems to work OK
 	return strings.Contains(abspath, filepath.Join("github.com", "c-sto", "bananaphone", "pkg", "bananaphone")), nil
 }
@@ -216,7 +217,7 @@ func (src *Source) BananaImport() string {
 
 //VarBlock will return the source needed for the var block - nothing if in raw mode etc
 func (src *Source) VarBlock() string {
-	if src.Mode == "raw" {
+	if src.Mode == "raw" || !src.Global {
 		return ``
 	}
 

