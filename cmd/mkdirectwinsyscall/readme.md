@@ -4,8 +4,6 @@
 
 This is mostly a re-write of go/src/golang.org/x/sys/windows/mkwinsyscall to fit in with bananaphone good.
 
-Todo: write usage/docs/reference etc for this
-
 ## Usage
 
 It's recommended that you have a file specific for your syscalls, but in theory, you only need the following signature:
@@ -26,7 +24,7 @@ so for example, if you wanted to bananaphone up a `NtAllocateVirtualMemory` call
 //dsys ntAllocateVirtualMemory(processHandle syscall.Handle, baseAddress *uintptr, zeroBits uintptr, regionSize *uintptr, allocationType uint64, protect uint64) (err error) = NtAllocateVirtualMemory
 ```
 
-Once you have your syscall.go file (or whatever it's called), you can run this prgoram against it (`mkdirectwinsyscall syscall.go`). By default this will print to stdout.
+Once you have your syscall.go file (or whatever it's called), you can run this program against it (`mkdirectwinsyscall syscall.go`). By default this will print to stdout.
 
 Pro move is to use `go generate` to do it all for you. Include a line like this in `syscall.go` and then run `go generate .` in the package that has the file:
 
@@ -37,7 +35,7 @@ Pro move is to use `go generate` to do it all for you. Include a line like this 
 This will run the generator, and replace the zsyscall_windows.go file with a newly generated version.
 
 
-## Scucess/Error values:
+## Success/Error values:
 
 See ntstatus.go
 
