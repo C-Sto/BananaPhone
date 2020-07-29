@@ -6,6 +6,37 @@ This is mostly a re-write of go/src/golang.org/x/sys/windows/mkwinsyscall to fit
 
 Todo: write usage/docs/reference etc for this
 
+## Usage
+
+It's recommended that you have a file specific for your syscalls, but in theory, you only need the following signature:
+
+```golang
+//dsys funcname(param type) (err error)
+```
+
+You can optionally include a suffix that allows you to have a different go function name, but calls a specified Windows API call. Below will create a func named `whateveryouwant()`, and resolve the `NtAllocateVirtualMemory` syscall ID.
+
+```golang
+//dsys whateveryouwant() (err error) = NtAllocateVirtualMemory
+```
+
+so for example, if you wanted to bananaphone up a `NtAllocateVirtualMemory` call, but not export it you would do this:
+```golang
+/*
+//dsys ntAllocateVirtualMemory(processHandle syscall.Handle, baseAddress *uintptr, zeroBits uintptr, regionSize *uintptr, allocationType uint64, protect uint64) (err error) = NtAllocateVirtualMemory
+```
+
+Once you have your syscall.go file (or whatever it's called), you can run this prgoram against it (`mkdirectwinsyscall syscall.go`). By default this will print to stdout.
+
+Pro move is to use `go generate` to do it all for you. Include a line like this in `syscall.go` and then run `go generate .` in the package that has the file:
+
+```golang
+//go:generate go run github.com/C-Sto/BananaPhone/cmd/mkdirectwinsyscall -output zsyscall_windows.go syscall.go
+```
+
+This will run the generator, and replace the zsyscall_windows.go file with a newly generated version.
+
+
 ## Scucess/Error values:
 
 See ntstatus.go

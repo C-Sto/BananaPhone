@@ -12,13 +12,16 @@ Several useful functions in dealing with process things are provided by this lib
 - `GetPEB` return the memory location of the PEB without performing any API calls. At it's core, just does this: `MOVQ 0x60(GS), AX ; MOVQ AX, ret+0(FP)`(this is the Go ASM syntax, incase you're confused.)
 - `GetNtdllStart` return the start address of ntdll loaded in process memory. Does not make any API calls (see asm_x64.s for details)
 - `WriteMemory` take a byte slice, and write it to a certain memory address (may panic if not writable etc lol)
-- A handful of predefined kernel calls like `NtAllocateVirtualMemory` etc. See source for more details and whatnot.
+- ~A handful of predefined kernel calls like `NtAllocateVirtualMemory` etc. See source for more details and whatnot.~
+- A direct version of `mkwinsyscall` (`mkdirectwinsyscall`in the cmd dir) which should make it easy for you to resolve and use syscalls, and now I don't have to support them :).
 
 All of the PE parsing and extraction of interesting information is provided by https://github.com/Binject/debug, which adds on to the stdlib `pe` library in some very cool ways.
 
 # Usage
 
 See examples in `example/`.
+
+See mkdirectwinsyscall readme in `cmd/mkdirectwinsyscall`, and example of use in `example`.
 
 # Why
 

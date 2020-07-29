@@ -19,5 +19,3 @@ func main() {
 		panic(e)
 	}
 }
-
-//go:generate go run github.com/C-Sto/BananaPhone/cmd/mkdirectwinsyscall -noglobal -output zsyscall_windows.go syscall.go

@@ -111,6 +111,25 @@ func NewFn(s, mode string, global, internal bool) (*Fn, error) {
 		f.Rets.SuccessCond = body
 	}
 
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return f, nil
+	}
+	if !strings.HasPrefix(s, "=") {
+		return nil, errors.New("Could not extract dll name from \"" + f.src + "\"")
+	}
+	s = strings.TrimSpace(s[1:])
+	a := strings.Split(s, ".")
+	switch len(a) {
+	case 1:
+		f.dllfuncname = a[0]
+	case 2:
+		f.dllname = a[0]
+		f.dllfuncname = a[1]
+	default:
+		return nil, errors.New("Could not extract dll name from \"" + f.src + "\"")
+	}
+
 	return f, nil
 }
 
