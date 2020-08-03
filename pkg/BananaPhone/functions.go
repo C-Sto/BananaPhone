@@ -2,6 +2,7 @@ package bananaphone
 
 import (
 	"unsafe"
+	"fmt"
 )
 
 //Syscall calls the system function specified by callid with n arguments. Works much the same as syscall.Syscall - return value is the call error code and optional error text. All args are uintptrs to make it easy.
