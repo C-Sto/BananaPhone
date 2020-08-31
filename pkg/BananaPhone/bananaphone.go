@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Binject/debug/pe"
 	"github.com/awgh/rawreader"
-	"github.com/binject/debug/pe"
 )
 
 //PhoneMode determines the way a bananaphone will resolve sysids

@@ -5,8 +5,8 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"github.com/Binject/debug/pe"
 	"github.com/awgh/rawreader"
-	"github.com/binject/debug/pe"
 	"golang.org/x/sys/windows"
 )
 

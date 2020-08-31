@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"sort"
 
-	"github.com/binject/debug/pe"
+	"github.com/Binject/debug/pe"
 )
 
 func main() {
