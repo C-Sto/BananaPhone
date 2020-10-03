@@ -150,8 +150,8 @@ func (src *Source) Generate(w io.Writer) error {
 			return err
 		}
 	*/
-	src.Import("syscall") //I think we will always need this?
-	src.Import("fmt")     //error creation (todo: should look into how to remove this)
+	//src.Import("syscall") //I think we will never need this?
+	src.Import("fmt") //error creation (todo: should look into how to remove this)
 
 	funcMap := template.FuncMap{ //I don't fully understand what's going on here. Update: I get it
 		"packagename":    src.GetPackageName,
