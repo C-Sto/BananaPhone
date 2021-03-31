@@ -1,4 +1,4 @@
-module github.com/C-Sto/BananaPhone
+module github.com/timwhitez/BananaPhone
 
 go 1.15
 
