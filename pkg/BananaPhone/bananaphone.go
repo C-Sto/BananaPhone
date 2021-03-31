@@ -1,6 +1,7 @@
 package bananaphone
 
 import (
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -133,6 +134,49 @@ func (b *BananaPhone) GetSysID(funcname string) (uint16, error) {
 	return r, e
 }
 
+
+
+//GetSysIDfromhash resolves the provided function name into a sysid.
+func (b *BananaPhone) GetSysIDfromhash(funcnamehash string) (uint16, error) {
+	r, e := b.getSysIDfromhash(funcnamehash, 0, false)
+	if e != nil {
+		var err MayBeHookedError
+		if b.isAuto && errors.As(e, &err) {
+			var e2 error
+			b.banana, e2 = pe.Open(`C:\Windows\system32\ntdll.dll`)
+			if e2 != nil {
+				return 0, e2
+			}
+			r, e = b.getSysIDfromhash(funcnamehash, 0, false)
+		}
+	}
+	return r, e
+}
+
+//getSysIDfromhash does the heavy lifting - will resolve a name or ordinal into a sysid by getting exports, and parsing the first few bytes of the function to extract the ID. Doens't look at the ord value unless useOrd is set to true.
+func (b BananaPhone) getSysIDfromhash(funcnamehash string, ord uint32, useOrd bool) (uint16, error) {
+	ex, e := b.banana.Exports()
+	if e != nil {
+		return 0, e
+	}
+
+	for _, exp := range ex {
+		if (useOrd && exp.Ordinal == ord) || // many bothans died for this feature (thanks awgh). Turns out that a value can be exported by ordinal, but not by name! man I love PE files. ha ha jk.
+			str2sha1(exp.Name) == strings.ToLower(funcnamehash) {
+			offset := rvaToOffset(b.banana, exp.VirtualAddress)
+			b, e := b.banana.Bytes()
+			if e != nil {
+				return 0, e
+			}
+			buff := b[offset : offset+10]
+
+			return sysIDFromRawBytes(buff)
+		}
+	}
+	return 0, errors.New("Could not find syscall ID")
+}
+
+
 //GetSysIDOrd resolves the provided ordinal into a sysid.
 func (b *BananaPhone) GetSysIDOrd(ordinal uint32) (uint16, error) {
 	r, e := b.getSysID("", ordinal, true)
@@ -188,3 +232,11 @@ func (e MayBeHookedError) Error() string {
 	mov eax, sysid ;(b8 sysid)
 */
 var HookCheck = []byte{0x4c, 0x8b, 0xd1, 0xb8}
+
+func str2sha1(s string) string{
+	s = strings.ToLower(s)
+	h := sha1.New()
+	h.Write([]byte(s))
+	bs := h.Sum(nil)
+	return fmt.Sprintf("%x", bs)
+}
