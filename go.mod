@@ -1,4 +1,4 @@
-module github.com/C-Sto/BananaPhone
+module github.com/timwhitez/BananaPhone
 
 go 1.15
 
@@ -7,3 +7,5 @@ require (
 	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4
 	golang.org/x/sys v0.0.0-20200828194041-157a740278f4
 )
+
+replace github.com/C-Sto/BananaPhone => github.com/timwhitez/BananaPhone 1.1
