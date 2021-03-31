@@ -1,6 +1,6 @@
 module github.com/timwhitez/BananaPhone
 
-go 1.16
+go 1.15
 
 require (
 	github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf
