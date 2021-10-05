@@ -1,4 +1,7 @@
 # BananaPhone
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/C-Sto/BananaPhone.svg)](https://pkg.go.dev/github.com/C-Sto/BananaPhone/pkg/BananaPhone)
+
 Like hells gate, but more go, more banana.
 
 Useful references:
