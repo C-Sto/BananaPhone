@@ -117,9 +117,9 @@ TEXT ·bpSyscall(SB), $0-56
 	CLD
 	REP; MOVSQ
 	MOVQ	SP, SI
+loadregs:
 	//move the stack pointer????? why????
 	SUBQ	$8, SP
-loadregs:
 	// Load first 4 args into correspondent registers.
 	MOVQ	0(SI), CX
 	MOVQ	8(SI), DX
