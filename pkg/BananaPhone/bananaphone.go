@@ -18,7 +18,7 @@ const (
 	MemoryBananaPhoneMode PhoneMode = iota
 	//DiskBananaPhoneMode will resolve by loading ntdll.dll from disk, and enumerating to resolve exports and determine the sysid.
 	DiskBananaPhoneMode
-	//AutoBananaPhoneMode will resolve by first trying to resolve in-memory, and then falling back to loading from disk if in-memory fails (eg, if it's hooked and the sysid's have been moved).
+	//AutoBananaPhoneMode will resolve by first trying to resolve in-memory, and then falling back to loading using halos gate, then on-disk if in-memory fails (eg, if it's hooked and the sysid's have been moved).
 	AutoBananaPhoneMode
 	//HalosGateBananaPhoneMode will resolve by first trying to resolve in-memory, and then falling back to deduce the syscall by searching a non-hooked function
 	HalosGateBananaPhoneMode
@@ -26,10 +26,9 @@ const (
 
 //BananaPhone will resolve SysID's used for syscalls while making minimal API calls. These ID's can be used for functions like NtAllocateVirtualMemory as defined in functions.go.
 type BananaPhone struct {
-	banana      *pe.File
-	isAuto      bool
-	isHalosGate bool
-	memloc      uintptr
+	banana *pe.File
+	mode   PhoneMode
+	memloc uintptr
 }
 
 //NewBananaPhone creates a new instance of a bananaphone with behaviour as defined by the input value. Use AutoBananaPhoneMode if you're not sure.
@@ -38,7 +37,7 @@ Possible values:
 	- MemoryBananaPhoneMode
 	- DiskBananaPhoneMode
 	- AutoBananaPhoneMode
-	- HalosGate
+	- HalosGateBananaPhoneMode
 */
 func NewBananaPhone(t PhoneMode) (*BananaPhone, error) {
 	return NewBananaPhoneNamed(t, "ntdll.dll", `C:\Windows\system32\ntdll.dll`)
@@ -56,7 +55,7 @@ Possible values:
 	- MemoryBananaPhoneMode
 	- DiskBananaPhoneMode
 	- AutoBananaPhoneMode
-	- HalosGate
+	- HalosGateBananaPhoneMode
 */
 func NewBananaPhoneNamed(t PhoneMode, name, diskpath string) (*BananaPhone, error) {
 	var p *pe.File
@@ -74,7 +73,7 @@ func NewBananaPhoneNamed(t PhoneMode, name, diskpath string) (*BananaPhone, erro
 		}
 		found := false
 		for k, load := range loads { //shout out to Frank Reynolds
-			if strings.ToLower(k) == strings.ToLower(diskpath) || strings.ToLower(name) == strings.ToLower(filepath.Base(k)) {
+			if strings.EqualFold(k, diskpath) || strings.EqualFold(name, filepath.Base(k)) {
 				rr := rawreader.New(uintptr(load.BaseAddr), int(load.Size))
 				p, e = pe.NewFileFromMemory(rr)
 				bp.memloc = uintptr(load.BaseAddr)
@@ -89,8 +88,7 @@ func NewBananaPhoneNamed(t PhoneMode, name, diskpath string) (*BananaPhone, erro
 		p, e = pe.Open(diskpath)
 	}
 	bp.banana = p
-	bp.isAuto = t == AutoBananaPhoneMode
-	bp.isHalosGate = t == HalosGateBananaPhoneMode
+	bp.mode = t
 	return bp, e
 }
 
@@ -101,7 +99,7 @@ func (b *BananaPhone) GetFuncPtr(funcname string) (uint64, error) {
 		return 0, err
 	}
 	for _, ex := range exports {
-		if strings.ToLower(funcname) == strings.ToLower(ex.Name) {
+		if strings.EqualFold(funcname, ex.Name) {
 			return uint64(b.memloc) + uint64(ex.VirtualAddress), nil
 		}
 	}
@@ -126,18 +124,22 @@ func (b *BananaPhone) NewProc(funcname string) BananaProcedure {
 
 //GetSysID resolves the provided function name into a sysid.
 func (b *BananaPhone) GetSysID(funcname string) (uint16, error) {
-	r, e := b.getSysID(funcname, 0, false)
+	r, e := b.getSysID(funcname, 0, false, b.mode == HalosGateBananaPhoneMode)
 	if e != nil {
 		var err MayBeHookedError
-		if b.isAuto && errors.As(e, &err) {
+		// error is some other error besides an indicator that we are being hooked
+		if !errors.Is(e, &err) {
+			return r, e
+		}
+
+		//fall back to disk only if in auto mode
+		if b.mode == AutoBananaPhoneMode {
 			var e2 error
 			b.banana, e2 = pe.Open(`C:\Windows\system32\ntdll.dll`)
 			if e2 != nil {
 				return 0, e2
 			}
-			r, e = b.getSysID(funcname, 0, false)
-		} else if b.isHalosGate && errors.As(e, &err) {
-			r, e = b.getSysIDFromNeighbor(funcname, 0, false)
+			r, e = b.getSysID(funcname, 0, false, false) //using disk mode her
 		}
 	}
 	return r, e
@@ -145,47 +147,29 @@ func (b *BananaPhone) GetSysID(funcname string) (uint16, error) {
 
 //GetSysIDOrd resolves the provided ordinal into a sysid.
 func (b *BananaPhone) GetSysIDOrd(ordinal uint32) (uint16, error) {
-	r, e := b.getSysID("", ordinal, true)
+	r, e := b.getSysID("", ordinal, true, b.mode == HalosGateBananaPhoneMode)
 	if e != nil {
 		var err MayBeHookedError
-		if b.isAuto && errors.Is(e, &err) {
+		//error that is not hooked error
+		if !errors.Is(e, &err) {
+			return r, e
+		}
+
+		//error just indicated the bytes were not as expected. Continue here.
+		if b.mode == AutoBananaPhoneMode {
 			var e2 error
 			b.banana, e2 = pe.Open(`C:\Windows\system32\ntdll.dll`)
 			if e2 != nil {
 				return 0, e2
 			}
-			r, e = b.getSysID("", ordinal, true)
+			r, e = b.getSysID("", ordinal, true, false) //using disk mode here
 		}
 	}
 	return r, e
 }
 
 //getSysID does the heavy lifting - will resolve a name or ordinal into a sysid by getting exports, and parsing the first few bytes of the function to extract the ID. Doens't look at the ord value unless useOrd is set to true.
-func (b BananaPhone) getSysID(funcname string, ord uint32, useOrd bool) (uint16, error) {
-	ex, e := b.banana.Exports()
-	if e != nil {
-		return 0, e
-	}
-
-	for _, exp := range ex {
-		if (useOrd && exp.Ordinal == ord) || // many bothans died for this feature (thanks awgh). Turns out that a value can be exported by ordinal, but not by name! man I love PE files. ha ha jk.
-			exp.Name == funcname {
-			offset := rvaToOffset(b.banana, exp.VirtualAddress)
-			b, e := b.banana.Bytes()
-			if e != nil {
-				return 0, e
-			}
-			buff := b[offset : offset+10]
-
-			return sysIDFromRawBytes(buff)
-		}
-	}
-	return 0, errors.New("Could not find syscall ID")
-}
-
-//getSysIDFromNeighboor deduces the syscall ID based on the a neighbor's syscall that is not hooked
-func (b BananaPhone) getSysIDFromNeighbor(funcname string, ord uint32, useOrd bool) (uint16, error) {
-
+func (b BananaPhone) getSysID(funcname string, ord uint32, useOrd, useneighbor bool) (uint16, error) {
 	ex, e := b.banana.Exports()
 	if e != nil {
 		return 0, e
@@ -204,7 +188,8 @@ func (b BananaPhone) getSysIDFromNeighbor(funcname string, ord uint32, useOrd bo
 			sysId, e := sysIDFromRawBytes(buff)
 			var err MayBeHookedError
 			// Look for the syscall ID in the neighborhood
-			if errors.As(e, &err) {
+			if errors.As(e, &err) && useneighbor {
+				// big thanks to @nodauf for implementing the halos gate logic
 				start, size := GetNtdllStart()
 				distanceNeighbor := 0
 				// Search forward
@@ -236,7 +221,7 @@ func (b BananaPhone) getSysIDFromNeighbor(funcname string, ord uint32, useOrd bo
 			}
 		}
 	}
-	return 0, errors.New("Could not find syscall ID")
+	return 0, errors.New("could not find syscall ID")
 }
 
 //MayBeHookedError an error returned when trying to extract the sysid from a resolved function. Contains the bytes that were actually found (incase it's useful to someone?)
