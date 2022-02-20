@@ -124,7 +124,14 @@ func (b *BananaPhone) NewProc(funcname string) BananaProcedure {
 
 //GetSysID resolves the provided function name into a sysid.
 func (b *BananaPhone) GetSysID(funcname string) (uint16, error) {
-	r, e := b.getSysID(funcname, 0, false, b.mode == HalosGateBananaPhoneMode)
+	useneighbor := false
+	switch b.mode {
+	case HalosGateBananaPhoneMode:
+		fallthrough
+	case AutoBananaPhoneMode:
+		useneighbor = true
+	}
+	r, e := b.getSysID(funcname, 0, false, useneighbor)
 	if e != nil {
 		var err MayBeHookedError
 		// error is some other error besides an indicator that we are being hooked
@@ -147,7 +154,15 @@ func (b *BananaPhone) GetSysID(funcname string) (uint16, error) {
 
 //GetSysIDOrd resolves the provided ordinal into a sysid.
 func (b *BananaPhone) GetSysIDOrd(ordinal uint32) (uint16, error) {
-	r, e := b.getSysID("", ordinal, true, b.mode == HalosGateBananaPhoneMode)
+	useneighbor := false
+	switch b.mode {
+	case HalosGateBananaPhoneMode:
+		fallthrough
+	case AutoBananaPhoneMode:
+		useneighbor = true
+	}
+
+	r, e := b.getSysID("", ordinal, true, useneighbor)
 	if e != nil {
 		var err MayBeHookedError
 		//error that is not hooked error

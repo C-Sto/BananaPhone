@@ -49,7 +49,7 @@ func main() {
 		fmt.Printf("[!] Error on VirtualProtect:", errVirtualProtectEx, "\n")
 	}
 	//overwrite in memory function bits to try and trigger bp to do smarts
-	bananaphone.WriteMemory([]byte{0x90, 0x90, 0x90, 0x90}, uintptr(mess))
+	bananaphone.WriteMemory([]byte{0x90, 0x90, 0x4c, 0x8b, 0xd1, 0xb8, 0xc1, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}, uintptr(mess))
 	fmt.Println("Messed up the NTCreateThreadEx function, gl launching calc!")
 	//resolve the functions and extract the syscalls
 	alloc, e := bp.GetSysID("NtAllocateVirtualMemory")
