@@ -152,6 +152,49 @@ func (b *BananaPhone) GetSysID(funcname string) (uint16, error) {
 	return r, e
 }
 
+
+
+//GetSysIDfromhash resolves the provided function name into a sysid.
+func (b *BananaPhone) GetSysIDfromhash(funcnamehash string, hash func(string)string) (uint16, error) {
+	r, e := b.getSysIDfromhash(funcnamehash, 0, false,hash)
+	if e != nil {
+		var err MayBeHookedError
+		if b.isAuto && errors.As(e, &err) {
+			var e2 error
+			b.banana, e2 = pe.Open(`C:\Windows\system32\ntdll.dll`)
+			if e2 != nil {
+				return 0, e2
+			}
+			r, e = b.getSysIDfromhash(funcnamehash, 0, false,hash)
+		}
+	}
+	return r, e
+}
+
+//getSysIDfromhash does the heavy lifting - will resolve a name or ordinal into a sysid by getting exports, and parsing the first few bytes of the function to extract the ID. Doens't look at the ord value unless useOrd is set to true.
+func (b BananaPhone) getSysIDfromhash(funcnamehash string, ord uint32, useOrd bool,hash func(string)string) (uint16, error) {
+	ex, e := b.banana.Exports()
+	if e != nil {
+		return 0, e
+	}
+
+	for _, exp := range ex {
+		if (useOrd && exp.Ordinal == ord) || // many bothans died for this feature (thanks awgh). Turns out that a value can be exported by ordinal, but not by name! man I love PE files. ha ha jk.
+			hash(exp.Name) == strings.ToLower(funcnamehash) {
+			offset := rvaToOffset(b.banana, exp.VirtualAddress)
+			b, e := b.banana.Bytes()
+			if e != nil {
+				return 0, e
+			}
+			buff := b[offset : offset+10]
+
+			return sysIDFromRawBytes(buff)
+		}
+	}
+	return 0, errors.New("Could not find syscall ID")
+}
+
+
 //GetSysIDOrd resolves the provided ordinal into a sysid.
 func (b *BananaPhone) GetSysIDOrd(ordinal uint32) (uint16, error) {
 	useneighbor := false
