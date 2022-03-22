@@ -75,7 +75,39 @@ func getSysIDFromDisk(funcname string, ord uint32, useOrd bool) (uint16, error) 
 			return sysIDFromRawBytes(buff)
 		}
 	}
-	return 0, errors.New("Could not find syscall ID")
+	return 0, errors.New("could not find syscall ID")
+}
+
+//get SYSCALL;RET instructions from ntdll
+func getSysRet() (uintptr, error) {
+	start, size := GetNtdllStart()
+	rr := rawreader.New(start, int(size))
+	p, e := pe.NewFileFromMemory(rr)
+	if e != nil {
+		return 0, e
+	}
+
+	ex, e := p.Exports()
+	if e != nil {
+		return 0, e
+	}
+	for _, exp := range ex {
+		offset := rvaToOffset(p, exp.VirtualAddress)
+		b, e := p.Bytes()
+		if e != nil {
+			return 0, e
+		}
+		buff := b[offset : offset+22]
+		for i := range buff {
+			//checking for 0f05c3 (syscall, ret)
+			//should probably gate this to only amd64, but uh, yeah, lol
+			if bytes.HasPrefix(buff[i:], []byte{0x0f, 0x05, 0xc3}) {
+				return uintptr(start) + uintptr(exp.VirtualAddress) + uintptr(i), nil
+			}
+		}
+
+	}
+	return 0, nil
 }
 
 //sysIDFromRawBytes takes a byte slice and determines if there is a sysID in the expected location. Returns a MayBeHookedError if the signature does not match.

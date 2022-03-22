@@ -1,22 +1,49 @@
 package bananaphone
 
 import (
-	"unsafe"
 	"fmt"
+	"unsafe"
 )
 
-//Syscall calls the system function specified by callid with n arguments. Works much the same as syscall.Syscall - return value is the call error code and optional error text. All args are uintptrs to make it easy.
+//Syscall calls the system function specified by callid with n arguments. Works much the same as syscall.Syscall - return value is the call error code and optional error text. All args are uintptrs to make it easy. **warning** using this function will include the `syscallfunc` stub in the executable, which includes instructions that should be easy to identify as suspicious.
 func Syscall(callid uint16, argh ...uintptr) (errcode uint32, err error) {
-	errcode = bpSyscall(callid, argh...)
-
+	f := syscallfunc
+	fu := unsafe.Pointer(&f)
+	xx := (**uintptr)(fu)
+	errcode = bpSyscall(callid, **xx, argh...)
 	if errcode != 0 {
 		err = fmt.Errorf("non-zero return from syscall")
 	}
 	return errcode, err
 }
 
-//Syscall calls the system function specified by callid with n arguments. Works much the same as syscall.Syscall - return value is the call error code and optional error text. All args are uintptrs to make it easy.
-func bpSyscall(callid uint16, argh ...uintptr) (errcode uint32)
+//FlexiSyscall functions identical to Syscall, except allows you to provide a pointer to a SYSCALL;RET. If you are converting from a Go function for some reason, check `Syscall` for how to use the sysret parameter. Fair warning, if you mess up the pointer here, you will crash and be sad.
+func FlexiSyscall(callid uint16, sysret uintptr, argh ...uintptr) (errcode uint32, err error) {
+	errcode = bpSyscall(callid, sysret, argh...)
+	if errcode != 0 {
+		err = fmt.Errorf("non-zero return from syscall")
+	}
+	return errcode, err
+}
+
+//SneakySyscall functions identical to Syscall, except finds a `SYSCALL; RET` instruction somewhere in ntdll.
+func SneakySyscall(callid uint16, argh ...uintptr) (errcode uint32, err error) {
+	u, e := getSysRet()
+	if e != nil {
+		return 0, e
+	}
+	errcode = bpSyscall(callid, u, argh...)
+	if errcode != 0 {
+		err = fmt.Errorf("non-zero return from syscall")
+	}
+	return errcode, err
+}
+
+//Dummy function that contains a SYSCALL RET incase you don't want to reuse one in ntdll for some reason
+func syscallfunc()
+
+//Syscall calls the system function specified by callid with n arguments, using the SYCALL instruction found at f. Works similar to syscall.Syscall - return value is the call error code and optional error text. All args are uintptrs to make it easy.
+func bpSyscall(callid uint16, f uintptr, argh ...uintptr) (errcode uint32)
 
 //GetPEB returns the in-memory address of the start of PEB while making no api calls
 func GetPEB() uintptr

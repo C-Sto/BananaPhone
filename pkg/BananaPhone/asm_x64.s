@@ -88,23 +88,38 @@ endloop:
 	SUBQ $0x10,CX
 	MOVQ CX, ret+8(FP)
 	
-	RET 
+	RET
+
+//func syscallfunc()
+TEXT ·syscallfunc(SB),0,$0-0
+	//RET
+	SYSCALL
+	RET
+
 
 //based on https://golang.org/src/runtime/sys_windows_amd64.s
 #define maxargs 16
 //func Syscall(callid uint16, argh ...uintptr) (uint32, error)
-TEXT ·bpSyscall(SB), $0-56
+TEXT ·bpSyscall(SB), $0-64
 	XORQ AX,AX
+	XORQ BX,BX
+
 	MOVW callid+0(FP), AX
+	MOVQ callfunc+8(FP), BX
 	PUSHQ CX
 	//put variadic size into CX
-	MOVQ argh_len+16(FP),CX
+	//MOVQ argh_len+16(FP),CX
+	MOVQ argh_len+24(FP),CX
 	//put variadic pointer into SI
-	MOVQ argh_base+8(FP),SI
+	//MOVQ argh_base+8(FP),SI
+	MOVQ argh_base+16(FP),SI
 	// SetLastError(0).
 	MOVQ	0x30(GS), DI
 	MOVL	$0, 0x68(DI)
 	SUBQ	$(maxargs*8), SP	// room for args
+	//no parameters, special case
+	CMPL CX, $0
+	JLE callz
 	// Fast version, do not store args on the stack.
 	CMPL	CX, $4
 	JLE	loadregs
@@ -119,7 +134,7 @@ TEXT ·bpSyscall(SB), $0-56
 	MOVQ	SP, SI
 loadregs:
 	//move the stack pointer????? why????
-	SUBQ	$8, SP
+	ADDQ $8, SP
 	// Load first 4 args into correspondent registers.
 	MOVQ	0(SI), CX
 	MOVQ	8(SI), DX
@@ -133,11 +148,19 @@ loadregs:
 	MOVQ	DX, X1
 	MOVQ	R8, X2
 	MOVQ	R9, X3
-	//MOVW callid+0(FP), AX
+	
 	MOVQ CX, R10
-	SYSCALL
-	ADDQ	$((maxargs+1)*8), SP
+	CALL BX
+//	SYSCALL
+	ADDQ	$((maxargs-1)*8), SP
 	// Return result.
 	POPQ	CX
-	MOVL	AX, errcode+32(FP)
+	MOVL	AX, errcode+40(FP)
+	RET
+callz:
+	//zero args means delicate stack stuff
+	MOVQ CX, R10
+	CALL BX
+	ADDQ	$((maxargs+1)*8), SP
+	MOVL	AX, errcode+40(FP)
 	RET
