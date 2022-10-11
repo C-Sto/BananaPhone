@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"unsafe"
 
 	"github.com/Binject/debug/pe"
 	"github.com/awgh/rawreader"
@@ -95,4 +96,25 @@ type stupidstring struct {
 
 func (s stupidstring) String() string {
 	return windows.UTF16PtrToString(s.PWstr)
+}
+
+//findSyscallRet iterates over the Ntdll memory to find a syscall; ret instruction
+func findSyscallRet() uintptr {
+	start, size := GetNtdllStart()
+	for i := start; i < start+size; i += 3 {
+		buf := make([]byte, 3)
+		unsafeReadMemory(i, buf)
+		if buf[0] == byte('\x0f') && buf[1] == byte('\x05') && buf[2] == byte('\xc3') {
+			return i
+		}
+	}
+	return 0
+}
+
+//unsafeReadMemory read the memory and fill the buffer
+func unsafeReadMemory(ptr uintptr, out []byte) error {
+	for i := range out {
+		out[i] = *(*byte)(unsafe.Pointer(ptr + uintptr(i)))
+	}
+	return nil
 }

@@ -1,13 +1,25 @@
 package bananaphone
 
 import (
-	"unsafe"
 	"fmt"
+	"unsafe"
 )
 
 //Syscall calls the system function specified by callid with n arguments. Works much the same as syscall.Syscall - return value is the call error code and optional error text. All args are uintptrs to make it easy.
 func Syscall(callid uint16, argh ...uintptr) (errcode uint32, err error) {
 	errcode = bpSyscall(callid, argh...)
+	if errcode != 0 {
+		err = fmt.Errorf("non-zero return from syscall")
+	}
+	return errcode, err
+}
+
+//SyscallRecycledGate calls the system function specified by callid with n arguments. Works like Syscall but instead of executing the syscall instruction it will search for syscall;ret and jump on it
+func SyscallRecycledGate(callid uint16, argh ...uintptr) (errcode uint32, err error) {
+
+	//find the location of syscall;ret inside ntdll
+	jumpRetSyscall := findSyscallRet()
+	errcode = bpRecycledGateSyscall(callid, jumpRetSyscall, argh...)
 
 	if errcode != 0 {
 		err = fmt.Errorf("non-zero return from syscall")
@@ -17,6 +29,9 @@ func Syscall(callid uint16, argh ...uintptr) (errcode uint32, err error) {
 
 //Syscall calls the system function specified by callid with n arguments. Works much the same as syscall.Syscall - return value is the call error code and optional error text. All args are uintptrs to make it easy.
 func bpSyscall(callid uint16, argh ...uintptr) (errcode uint32)
+
+//bpRecycledGateSyscall calls the system function specified by callid with n arguments. Works like Syscall but instead of executing the syscall instruction it will search for syscall;ret and jump on it
+func bpRecycledGateSyscall(callid uint16, jump uintptr, argh ...uintptr) (errcode uint32)
 
 //GetPEB returns the in-memory address of the start of PEB while making no api calls
 func GetPEB() uintptr
