@@ -20,6 +20,7 @@ Several useful functions in dealing with process things are provided by this lib
 - ~A handful of predefined kernel calls like `NtAllocateVirtualMemory` etc. See source for more details and whatnot.~
 - A direct version of `mkwinsyscall` (`mkdirectwinsyscall`in the cmd dir) which should make it easy for you to resolve and use syscalls, and now I don't have to support them :).
 - Halo's gate implementation by @nodauf
+- Recycled gate implementation by @nodauf
 - When using auto mode, BananaPhone will first try to get the syscall ID from memory using the exported function name, then fail over to Halo's Gate, then Fail over to reading ntdll from disk. The Disk read is *not* done with any MapViewOfSection functions, so detection must be conducted using handles to the ntdll file.
 
 All of the PE parsing and extraction of interesting information is provided by https://github.com/Binject/debug, which adds on to the stdlib `pe` library in some very cool ways.
